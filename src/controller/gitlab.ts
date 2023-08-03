@@ -174,19 +174,11 @@ export default class GitWebhookController {
             const lastCommit: Commit = commits[0];
             const branchName = ref.replace("refs/heads/", "");
             msg = `项目 ${repository.name} 收到了一次push，提交者：${user_name}，最新提交信息：${lastCommit.message}`;
-            let lastCommitMsg;
-            let url;
-            if (lastCommit) {
-                msg = msg + `，最新提交信息：${lastCommit.message}`;
-                lastCommitMsg = `最新提交信息：${lastCommit.message}`;
-                url = lastCommit.url;
-            }
             ctx.body = msg;
             const mdMsg = `项目 [${repository.name}](${repository.homepage}) 收到一次push提交
-提交者:  \<font color= \"commit\"\>${user_name}\</font\>
-分支:  \<font color= \"commit\"\>${branchName}\</font\>
-[查看详情](${url})
-${lastCommitMsg}`;
+                           提交者:  \<font color= \"commit\"\>${user_name}\</font\>
+                           分支:  \<font color= \"commit\"\>${branchName}\</font\>
+                           最新提交信息: ${lastCommit.message}`;
             await robot.sendMdMsg(mdMsg);
             ctx.status = 200;
             return;
@@ -206,10 +198,10 @@ ${lastCommitMsg}`;
         const {user, object_attributes} = body;
         const attr = object_attributes;
         const mdMsg = `${user.name}在 [${attr.source.name}](${attr.source.web_url}) ${actionWords[attr.action]}了一个MR
-标题：${attr.title}
-源分支：${attr.source_branch}
-目标分支：${attr.target_branch}
-[查看MR详情](${attr.url})`;
+                        标题：${attr.title}
+                        源分支：${attr.source_branch}
+                        目标分支：${attr.target_branch}
+                        [查看MR详情](${attr.url})`;
         await robot.sendMdMsg(mdMsg);
         ctx.status = 200;
         return;
@@ -227,9 +219,9 @@ ${lastCommitMsg}`;
         // update 这个问题又修复了 见工蜂的issue
         // const url = attr.url.replace("issue", "issues");
         const mdMsg = `有人在 [${repository.name}](${repository.url}) ${actionWords[attr.action]}了一个issue
-标题：${attr.title}
-发起人：${user.name}
-[查看详情](${attr.url})`;
+                        标题：${attr.title}
+                        发起人：${user.name}
+                        [查看详情](${attr.url})`;
         await robot.sendMdMsg(mdMsg);
         ctx.status = 200;
         return;
