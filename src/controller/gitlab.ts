@@ -6,6 +6,7 @@ import { BaseContext } from "koa";
 import ChatRobot from "./chat";
 import { config } from "../config";
 import customLog from "../log";
+import * as micromatch from "micromatch";
 const log = customLog("gitlab handler");
 interface Repository {
     name: string;
@@ -173,6 +174,9 @@ export default class GitWebhookController {
         } else {
             const lastCommit: Commit = commits[0];
             const branchName = ref.replace("refs/heads/", "");
+            if (!GitWebhookController.checkOnly(ctx, branchName)) {
+                return;
+            }
             msg = `项目 ${repository.name} 收到了一次push，提交者：${user_name}，最新提交信息：${lastCommit.message}`;
             ctx.body = msg;
             const mdMsg = `项目 [${repository.name}](${repository.homepage}) 收到一次push提交
@@ -197,6 +201,15 @@ export default class GitWebhookController {
         log.info(body);
         const {user, object_attributes} = body;
         const attr = object_attributes;
+        if (attr.action === "update") {
+            // 如果是更新MR，不发送通知
+            ctx.status = 200;
+            return;
+        }
+        const branchName = attr.target_branch;
+        if (!GitWebhookController.checkOnly(ctx, branchName)) {
+            return;
+        }
         const mdMsg = `${user.name}在 [${attr.source.name}](${attr.source.web_url}) ${actionWords[attr.action]}了一个MR
                         标题：${attr.title}
                         源分支：${attr.source_branch}
@@ -239,5 +252,22 @@ export default class GitWebhookController {
 
     public static handleDefault(ctx: BaseContext, event: String) {
         ctx.body = `Sorry，暂时还没有处理${event}事件`;
+    }
+
+    public static checkOnly(ctx: BaseContext, branchName: String) {
+        let onlyBranchName = (ctx.request.query.only || ctx.request.query.onlyBranch) as string;
+        if (onlyBranchName) {
+            onlyBranchName = onlyBranchName.replace("@", "*");
+        }
+        if (onlyBranchName && !micromatch.isMatch(branchName, onlyBranchName)) {
+            ctx.status = 200;
+            if (onlyBranchName.indexOf("*") > -1) {
+                ctx.body = `设置了only ${onlyBranchName}分支才推送信息，该触发分支为${branchName}，不符合条件，而且属于glob模式`;
+            } else {
+                ctx.body = `设置了only ${onlyBranchName}分支才推送信息，该触发分支为${branchName}，不符合条件`;
+            }
+            return false;
+        }
+        return true;
     }
 }
